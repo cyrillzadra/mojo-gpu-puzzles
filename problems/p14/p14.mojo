@@ -57,6 +57,25 @@ fn single_block_matmul[
     local_col = thread_idx.x
     # FILL ME IN (roughly 12 lines)
 
+    shared_a = tb[dtype]().row_major[TPB, TPB]().shared().alloc()
+    shared_b = tb[dtype]().row_major[TPB, TPB]().shared().alloc()
+
+    if row < size and col < size:
+      shared_a[local_row, local_col] = a[row, col]
+      shared_b[local_row, local_col] = b[row, col]
+
+    barrier()
+
+    if row < size and col < size:
+
+      var sum : output.element_type = 0
+
+      @parameter    
+      for i in range(size):
+        sum += shared_a[local_row, i] * shared_b[i, local_col]
+    
+      output[row, col] = sum
+    
 
 # ANCHOR_END: single_block_matmul
 
@@ -80,6 +99,30 @@ fn matmul_tiled[
     tiled_col = block_idx.x * TPB + thread_idx.x
     # FILL ME IN (roughly 20 lines)
 
+    shared_a = tb[dtype]().row_major[TPB, TPB]().shared().alloc()
+    shared_b = tb[dtype]().row_major[TPB, TPB]().shared().alloc()
+
+    var value : output.element_type = 0
+
+    for tile in range( (size + TPB - 1) // TPB):
+      ## load
+      if tiled_row < size and (tile * TPB + local_col) < size:
+        shared_a[local_row, local_col] = a[tiled_row, tile * TPB + local_col]
+      if (tile * TPB + local_row) < size and tiled_col < size:
+        shared_b[local_row, local_col] = b[tile * TPB + local_row, tiled_col]
+
+      barrier()
+
+      ## matmul
+      if tiled_row < size and tiled_col < size:
+        for i in range(min(TPB, size - tile * TPB)):
+          value += shared_a[local_row, i] * shared_b[i, local_col]
+
+      barrier()
+
+    if tiled_row < size and tiled_col < size:
+      output[tiled_row, tiled_col] = value
+ 
 
 # ANCHOR_END: matmul_tiled
 
