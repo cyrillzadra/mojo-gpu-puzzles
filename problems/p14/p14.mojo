@@ -26,7 +26,19 @@ fn naive_matmul[
     row = block_dim.y * block_idx.y + thread_idx.y
     col = block_dim.x * block_idx.x + thread_idx.x
     # FILL ME IN (roughly 6 lines)
+   
+    print(size)
+    print(row, "  " , col)
 
+    if row < size and col < size:
+      var value : output.element_type = 0
+
+      @parameter
+      for j in range(size):
+        value += a[row, j] * b[j, col]
+
+      print(value)
+      output[row, col] = value
 
 # ANCHOR_END: naive_matmul
 
@@ -75,12 +87,12 @@ fn matmul_tiled[
 def main():
     with DeviceContext() as ctx:
         if len(argv()) != 2 or argv()[1] not in [
-            "--simple",
+            "--naive",
             "--single-block",
             "--tiled",
         ]:
             raise Error(
-                "Expected one argument: '--simple', '--single-block', or"
+                "Expected one argument: '--naive', '--single-block', or"
                 " '--tiled'"
             )
         size = SIZE_TILED if argv()[1] == "--tiled" else SIZE
